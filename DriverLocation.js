@@ -12,6 +12,29 @@ read.on('connect', function(){
 });
 ;
 
+function getKeyFromString( reply )
+{
+  var json = JSON.parse(reply);
+  //console.log( reply + ' ' + json['latitude'] );
+  key=''
+  var longitude = json['longitude'];
+  if( longitude != undefined && longitude != null)
+  {
+     longitude = longitude.toString();
+     longitude = longitude.substring(0,4);
+  }
+  var latitude = json['latitude'];
+  if( latitude != undefined && latitude != null )
+  {
+  	latitude = latitude.toString();
+	latitude = latitude.substring(0,4);
+  }
+  if(latitude != undefined && latitude != null && longitude != undefined && longitude != null )
+  {
+  	key=longitude+latitude;
+  }
+  return key; 
+}
 
 
 http.createServer(function(request, response) {
@@ -63,36 +86,16 @@ http.createServer(function(request, response) {
 			{	
 				var json = JSON.parse(reply);
 				//console.log( reply + ' ' + json['latitude'] );
-				key=''
-				var longitude = json['longitude'];
-				if( longitude != undefined && longitude != null)
-				{
-					longitude = longitude.toString();
-					longitude = longitude.substring(0,4);
-				}
-				var latitude = json['latitude'];
-				if( latitude != undefined && latitude != null )
-				{
-					latitude = latitude.toString();
-					latitude = latitude.substring(0,4);
-				}
-				if(latitude != undefined && latitude != null && longitude != undefined && longitude != null )
-				{
-					key=longitude+latitude;
-								
-					client.lrem(key, 0,Number(driverid), function(err, reply){
-						console.log('reply lrem : ' + reply);
-					});
-				}
+				key=getKeyFromString( reply );
+				client.lrem(key, 0,Number(driverid), function(err, reply){
+					console.log('reply lrem : ' + reply);
+				});
+				
 			}
 		});
 		client.set(Number(driverid), body, function(err,reply){
 			console.log( ' set : ' + reply);
-			var longitude = data['longitude'].toString();
-			var latitude = data['latitude'].toString();
-			longitude = longitude.substring(0,4);
-			latitude = latitude.substring(0,4);
-			key=longitude+latitude;
+			key = getKeyFromString( body );
 			client.lpush(key, Number(driverid), function(err,reply){
 				console.log('reply lpush :' + reply);
 			} );
