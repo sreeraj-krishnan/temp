@@ -1,17 +1,30 @@
 var http = require('http');
 //var json=require('json');
 var math=require('mathjs');
+var redis=require('redis');
+var client = redis.createClient(); //11111,'127.0.0.1'
+client.on('connect', function(){
+	console.log('connected');
+});
+var read = redis.createClient(6399,'127.0.0.1'); //11111,'127.0.0.1'
+read.on('connect', function(){
+	console.log('connected');
+});
+;
+
+
 
 http.createServer(function(request, response) {
   var headers = request.headers;
   var method = request.method;
   var url = request.url;
   var body = [];
+  var Body=[];
   var driverid;
   var lower;
   var upper;
   var data;
-  console.log(request.url);
+  //console.log(request.url);
   
   if (method === 'PUT' )
   {
@@ -20,7 +33,7 @@ http.createServer(function(request, response) {
      if ( (id.length - 2) > 0 )
      {
 		driverid= id[id.length-2];
-		console.log( ' driver id : ' + driverid );
+		//console.log( ' driver id : ' + driverid );
 	 }
 	 upper = (Number(driverid) <= Number(50000));
 	 lower = (Number(driverid) > "0");
@@ -32,24 +45,67 @@ http.createServer(function(request, response) {
 	 else
 	 {
 		request.on('data', function(chunk) {
-		body.push(chunk);
+		Body.push(chunk);
 	    }).on('end', function() {
-			body=  Buffer.concat(body).toString() ;
+			body=  Buffer.concat(Body).toString() ;
 			data = JSON.parse( body );
+			
+			/*list=[]
 			for( var key in data )
 			{
-				console.log( key + ' is ' + data[key] );
+				list.push(data[key])
+				console.log( key + ' : ' + data[key] );
+			}*/
+	 	// async write data redis
+		key=''
+		read.get(Number(driverid), function(err,reply){
+			if( reply != null )
+			{	
+				var json = JSON.parse(reply);
+				//console.log( reply + ' ' + json['latitude'] );
+				key=''
+				var longitude = json['longitude'];
+				if( longitude != undefined && longitude != null)
+				{
+					longitude = longitude.toString();
+					longitude = longitude.substring(0,4);
+				}
+				var latitude = json['latitude'];
+				if( latitude != undefined && latitude != null )
+				{
+					latitude = latitude.toString();
+					latitude = latitude.substring(0,4);
+				}
+				if(latitude != undefined && latitude != null && longitude != undefined && longitude != null )
+				{
+					key=longitude+latitude;
+								
+					client.lrem(key, 0,Number(driverid), function(err, reply){
+						console.log('reply lrem : ' + reply);
+					});
+				}
 			}
-	 	`// async write data memcache oe redis
+		});
+		client.set(Number(driverid), body, function(err,reply){
+			console.log( ' set : ' + reply);
+			var longitude = data['longitude'].toString();
+			var latitude = data['latitude'].toString();
+			longitude = longitude.substring(0,4);
+			latitude = latitude.substring(0,4);
+			key=longitude+latitude;
+			client.lpush(key, Number(driverid), function(err,reply){
+				console.log('reply lpush :' + reply);
+			} );
+		})
 		response.statusCode = 200;
-		response.end('correct!');
+		response.end();
 	  })
 	 }
   }
   else if( method === 'GET' && url.endsWith('/drivers'))
   {
 		response.statusCode = 200;
-		response.end('correct!');
+		response.end();
   }
   else 
   {
