@@ -1,89 +1,22 @@
 var http = require('http');
-//var json=require('json');
-var math=require('mathjs');
+var express = require('express');
+var math=require('url');
 var redis=require('redis');
 var async=require('async');
 var geo = require('geolib')
-locations={};
-longitude={};
-latitude={};
-map = {}
+
+var keyloc = require('./keygeoloc')
+getKeyFromString = keyloc.getKeyFromString
+
+var app = express();
 
 var read = redis.createClient(6399,'127.0.0.1'); //11111,'127.0.0.1'
 read.on('connect', function(){
 	console.log('connected');
 });
 
-/*
-	longitude = {}
-	latitude = {}
-	*/
-function fetchLocations()
-{
-	var i=0;
-   	map={}
-		read.keys('*', function ( err, replies){
-			//console.log( ' length : ' + replies.length )
-			
-			replies.forEach(function (reply, index){
-				//console.log( 'reply : ' + reply);
-				read.get(reply, function(err,data){
-					if( err )
-					{
-						console.log( 'err : ' + err.toString());
-					}
-					//var fulldata=[];
-					//console.log( data );
-					var json = JSON.parse( data );
-					var lat = json['longitude'].toString();
-					var lon = json['latitude'].toString();
-					//console.log( 'lat : ' + lat);
-					//console.log( 'lon : ' + lan);
-					
-					var l=[]
-					if (((lat.substring( 0,4)) in latitude))
-					{
-						l = latitude[ lon.substring(0,4) ];
-					}
-					l.push(reply);
-					//console.log( 'leng : ' + l.length );
-					latitude[ lon.substring(0,4) ] = l;
-					l=[]
-					if ((lon.substring( 0,4) in longitude))
-					{
-						l = longitude[ lon.substring(0,4) ];
-					}
-					l.push(reply);
-					//console.log( 'leng : ' + l.length );
-					//console.log('***')
-					longitude[ lon.substring( 0,4)] = l;
-					
-					locations[ reply ] = data ;
-					m=[]
-					if( ((lon.substring( 0,4) + lat.substring( 0,4)) in map))
-					{
-						m = map[lon.substring( 0,4) + lat.substring( 0,4)];
-					}
-					m.push( reply );
-					//console.log( ' len : ' + m.length );
-					map[ lon.substring( 0,4) + lat.substring( 0,4) ] = m;
-				});
-			});
-		});
-		//console.log( 'len : ' + Object.keys(locations).length);
-		
-}
-function callInfinite( time, fn) {
-  function callFn() {
-    fn();
-    setTimeout(callFn, time);
-  }
-  fn();
-  setTimeout(callFn, time);
-}
 
-
-http.createServer(function(request, response) {
+app.get('/drivers', function(request, response){
   var headers = request.headers;
   var method = request.method;
   var url = request.url;
@@ -92,75 +25,180 @@ http.createServer(function(request, response) {
   var lower;
   var upper;
   var data;
-  console.log(request.url);
-  callInfinite( 60000,  fetchLocations );
+  console.log(request.query.latitude + ' : ' + request.query.longitude + ' : ' + request.query.radius + ' : ' + request.query.limit);
+  //var result = url.parse( );
+  //callInfinite( 60000,  fetchLocations );
+  //if( method === 'GET' )
+  {
+	    console.time("fetch");
+		var out=''
+		var limit = request.query.limit;
+		var climit=request.query.limit;
+		var radius = request.query.radius;
+		var qloc = { latitude: request.query.latitude , longitude: request.query.longitude };
+		key = getKeyFromString( JSON.stringify(qloc) );
+		//console.log( key )
+		var possiblelist=[]
+		read.lrange(key, 0, -1, function(err, replies){
+			
+			if( replies.length == 0 )
+			{
+				response.statusCode = 200;
+				response.end('[]');
+				console.timeEnd("fetch");
+				return;
+			}
+			//console.log( ' total available records : ' + replies.length  );
+			total = replies.length ;
+			//var allkeys=[]
+			var keys=[]
+			replies.forEach(function (item, index){
+					
+					keys.push(item)
+					--total;
+					if( total == 0  || (index % climit) == 0 )
+					{
+						read.mget(keys, function(err, replies){
+							var recs = replies.length;
+							console.log( 'recs : ' + recs);
+							replies.forEach(function(reply, index){
+								var loc = JSON.parse(reply); 
+								var distance = geo.getDistanceSimple(loc, qloc, loc['accuracy']);
+								//console.log( 'dist : ' + distance);
+				
+								if ( distance < radius )
+								{
+									delete loc.accuracy;
+									//loc['id'] = index;
+									loc['distance'] = distance;
+									out += JSON.stringify( loc ) + ',\n';
+									if ( --limit == 0 )
+									{
+										//console.log( index );
+										response.statusCode = 200;
+										response.end('[' + out.substring(0,out.length-2) + ']');
+										console.timeEnd("fetch");
+										return;
+									}
+								}
+								if( --recs == 0 )
+								{
+									if( total == 0 )
+									{
+										//console.log('limit :  ', limit);
+										console.timeEnd("fetch");
+										response.statusCode = 200;
+										response.end('[' + out.substring(0,out.length-2) + ']');
+										return;
+									}
+									keys=[]
+							
+								}
+							});
+						});
+					}
+					
+			});
+		});
+  }
+  
+  
+});
+
+app.listen(8081);
+
+/*
+
+var server = http.createServer(function(request, response) {
+  var headers = request.headers;
+  var method = request.method;
+  var url = request.url;
+  var body = [];
+  var driverid;
+  var lower;
+  var upper;
+  var data;
+  console.log(request.url + ' : ' + );
+  //var result = url.parse( );
+  //callInfinite( 60000,  fetchLocations );
   if (method === 'PUT' )
   {
 	
   }
-  else if( method === 'GET' && url.endsWith('/drivers'))
+  else if( method === 'GET' )
   {
 	    console.time("fetch");
 		var out=''
-		var p = { latitude: 70.0232442 , longitude: 70.14554 };
-		//var m = { latitude: 70.1032442 , longitude: 70.104554 };
-		//var d = geo.getDistanceSimple(p,m,0.7)
-		//console.log( 'dist : ' + d);
-		latk=p.latitude.toString();
-		lonk=p.longitude.toString();
-		latk = latk.substring(0,4);
-		lonk = lonk.substring(0,4);
-		/*
-		console.log( lonk + ' ' + latk );
-		if ( !(latk in latitude) && !(lonk in longitude) )
-		{
-			response.statusCode = 200;
-			response.end();
-			return;
-		}
-		var possiblelist = [];
-		if( (lonk in longitude) )
-		{
-			possiblelist =  longitude[lonk] ;
-		}
-		if( (latk in latitude) )
-		{
-			possiblelist.concat( latitude[latk] );
-		}*/
+		var limit = 10, climit;
+		var p = { latitude: 70.10932442 , longitude: 70.2155499 };
+		key = getKeyFromString( JSON.stringify(p) );
+		console.log( key )
 		var possiblelist=[]
-		if( !((lonk + latk) in map ))
-		{
-			response.statusCode = 200;
-			response.end();
-			return;
-		}
-		possiblelist = map[ lonk + latk];
-		for ( loc in possiblelist)
-		{
-				//console.log( 'loc : ' +loc );
-				if( !(loc in locations))
-				{
-					continue;
-				}
-				var j = JSON.parse(locations[loc]); 
-				//console.log( );
-				var mp = { latitude: j['lattitude']  , longitude: j['longitude'] }
+		read.lrange(key, 0, -1, function(err, replies){
+			
+			if( replies.length == 0 )
+			{
+				response.statusCode = 200;
+				response.end('[]');
+				console.timeEnd("fetch");
+				return;
+			}
+			console.log( ' t : ' + replies.length  );
+			total = replies.length ;
+			var allkeys=[]
+			var keys=[]
+			replies.forEach(function (item, index){
+					
+					keys.push(item)
+					--total;
+					if( total == 0 || (index % climit) == 0 )
+					{
+						read.mget(keys, function(err, replies){
+							var recs = replies.length;
+							console.log( 'recs : ' + recs);
+							replies.forEach(function(reply, index){
+								var loc = JSON.parse(reply); 
+								var distance = geo.getDistanceSimple(loc, p, loc['accuracy']);
+								//console.log( 'dist : ' + distance);
 				
-				var d = geo.getDistanceSimple(mp, p, j['accuracy']);
-				//console.log( 'dist : ' + d);
-				
-				if ( d < 500 )
-				{
-					delete j.accuracy;
-					j['id'] = loc;
-					j['distance'] = d;
-					out += JSON.stringify(j) + ',\n';
-				}
-		}
-		console.timeEnd("fetch");
-		response.statusCode = 200;
-		response.end('[' + out.substring(0,out.length-2) + ']');
-		//console.log( 'len : ' + Object.keys(locations).length);
+								if ( distance < 500 )
+								{
+									delete loc.accuracy;
+									loc['id'] = index;
+									loc['distance'] = distance;
+									out += JSON.stringify( loc ) + ',\n';
+									if ( --limit == 0 )
+									{
+										console.log( index );
+										response.statusCode = 200;
+										response.end('[' + out.substring(0,out.length-2) + ']');
+										console.timeEnd("fetch");
+										return;
+									}
+								}
+								if( --recs == 0 )
+								{
+									if( total == 0 )
+									{
+										console.log('limit :  ', limit);
+										console.timeEnd("fetch");
+										response.statusCode = 200;
+										response.end('[' + out.substring(0,out.length-2) + ']');
+									}
+									keys=[]
+									//console.log( index );
+									//console.timeEnd("fetch");
+									//response.statusCode = 200;
+									//response.end('[' + out.substring(0,out.length-2) + ']');
+									//return cb(null, response);
+									
+								}
+							});
+						});
+					}
+					
+			});
+		});
   }
   else 
   {
@@ -170,3 +208,5 @@ http.createServer(function(request, response) {
  
 	
 }).listen(8081);
+
+*/

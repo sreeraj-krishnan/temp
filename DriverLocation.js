@@ -2,6 +2,10 @@ var http = require('http');
 //var json=require('json');
 var math=require('mathjs');
 var redis=require('redis');
+
+var keyloc = require('./keygeoloc')
+getKeyFromString = keyloc.getKeyFromString
+
 var client = redis.createClient(); //11111,'127.0.0.1'
 client.on('connect', function(){
 	console.log('connected');
@@ -11,30 +15,6 @@ read.on('connect', function(){
 	console.log('connected');
 });
 ;
-
-function getKeyFromString( reply )
-{
-  var json = JSON.parse(reply);
-  //console.log( reply + ' ' + json['latitude'] );
-  key=''
-  var longitude = json['longitude'];
-  if( longitude != undefined && longitude != null)
-  {
-     longitude = longitude.toString();
-     longitude = longitude.substring(0,4);
-  }
-  var latitude = json['latitude'];
-  if( latitude != undefined && latitude != null )
-  {
-  	latitude = latitude.toString();
-	latitude = latitude.substring(0,4);
-  }
-  if(latitude != undefined && latitude != null && longitude != undefined && longitude != null )
-  {
-  	key=longitude+latitude;
-  }
-  return key; 
-}
 
 
 http.createServer(function(request, response) {
@@ -82,24 +62,30 @@ http.createServer(function(request, response) {
 	 	// async write data redis
 		key=''
 		read.get(Number(driverid), function(err,reply){
-			if( reply != null )
+			if( err ){ console.log('err : ' + err ); }
+			 else
 			{	
 				var json = JSON.parse(reply);
 				//console.log( reply + ' ' + json['latitude'] );
 				key=getKeyFromString( reply );
 				client.lrem(key, 0,Number(driverid), function(err, reply){
-					console.log('reply lrem : ' + reply);
+					//console.log('reply lrem : ' + reply);
 				});
 				
 			}
+			data['id'] = Number(driverid);
+			client.set(Number(driverid), JSON.stringify(data) , function(err,reply){
+				//console.log( ' set : ' + reply);
+				if( err ) { console.log('err : ' + err ); }
+				else {
+					key = getKeyFromString( body );
+					client.lpush(key, Number(driverid), function(err,reply){
+					//console.log('reply lpush :' + reply);
+					});
+				}
+			});
 		});
-		client.set(Number(driverid), body, function(err,reply){
-			console.log( ' set : ' + reply);
-			key = getKeyFromString( body );
-			client.lpush(key, Number(driverid), function(err,reply){
-				console.log('reply lpush :' + reply);
-			} );
-		})
+		
 		response.statusCode = 200;
 		response.end();
 	  })
