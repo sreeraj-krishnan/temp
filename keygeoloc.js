@@ -1,12 +1,20 @@
 'use strict';
 
-module.exports.getKeyFromString = function ( reply )
+module.exports.getKeyFromString = function ( reply ,_json=false)
 {
   if( reply == null || reply == undefined )
   {
 		return 'invalid';
   }
-  var json = JSON.parse(reply);
+  var json;
+  if( _json === true )
+  {
+	  json = reply;
+  }
+  else
+  {
+	json = JSON.parse(reply);
+  }
   //console.log( reply + ' ' + json['latitude'] );
   var key=''
   var longitude = json['longitude'];
@@ -14,22 +22,17 @@ module.exports.getKeyFromString = function ( reply )
   {
      longitude = longitude.toString();
 	 longitude = getKey(longitude);
-	 key = key.concat( longitude );
-	 //console.log( longitude);
+	 key = key.concat( longitude ) + 'LO';
+	 
   }
   var latitude = json['latitude'];
   if( latitude != undefined && latitude != null )
   {
   	latitude = latitude.toString();
 	latitude = getKey(latitude);
-	key = key.concat( latitude);
-	//console.log( latitude );
+	key = key.concat( latitude) + 'LA';
   }
-  if(latitude != undefined && latitude != null && longitude != undefined && longitude != null )
-  {
-  	//key=longitude.concat(latitude);
-  }
-  //console.log( 'key : ' + key );
+  //console.log( key )
   return key; 
 }
 
@@ -56,4 +59,15 @@ function getKey( input )
 	return  input.substring(0, index + 2);
 }
 
-//console.log( getKey(' -.12 ') );
+function validate( loc )
+{
+	var re = new RegExp('^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$');
+	return  re.test( loc );
+}
+
+/*
+console.log( validate('77,-70') );
+console.log( validate('90.0,-180')) ;
+console.log( validate('12.43,12.12')) ;
+console.log( validate('1.343,34.887') );
+*/
