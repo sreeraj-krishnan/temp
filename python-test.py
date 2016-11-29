@@ -1,18 +1,18 @@
 import os;
 import sys;
 
-latitude=70.1234343
-longitude=70.12324343
+latitude =70.12343732
+longitude=70.1237098
 
 
 def main(a,b):
     global latitude
     global longitude;
     for i in range(a,b):
-        latitude += 0.01
-        longitude += 0.01
+        latitude += 0.01 ;
+        longitude += 0.01;
         accuracy = i % 100 + 1
-    
+        #print str(longitude) + 'LO' + str(latitude)
         data = str(' { "latitude": ') + str(latitude) + str(' , "longitude" : ') + str(longitude) + str(' , "accuracy" : ' +  str(float(accuracy)/100) +str(' }'))
         
         #print data

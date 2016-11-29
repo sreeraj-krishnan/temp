@@ -59,15 +59,35 @@ function getKey( input )
 	return  input.substring(0, index + 2);
 }
 
-function validate( loc )
+module.exports.validateGeoLocation =  function ( str )
 {
-	var re = new RegExp('^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$');
-	return  re.test( loc );
+
+	var match = /^\s*?(-?[0-9]+\.?[0-9]+?)\s*,\s*(-?[0-9]+\.?[0-9]+?)\s*$/.exec(str);
+	
+	if (match && match.length === 3) {
+		var lat = parseFloat(match[1]);
+		var lng = parseFloat(match[2]);
+
+		if (  (lat >= -90)
+				&& (lat <= 90)
+				&& (lng >= -180)
+				&& (lng <= 180)
+			) {
+				return true;
+		}
+		else {
+			
+			return false;
+		}
+    }
+  return false;
+	
 }
 
 /*
-console.log( validate('77,-70') );
-console.log( validate('90.0,-180')) ;
-console.log( validate('12.43,12.12')) ;
-console.log( validate('1.343,34.887') );
+console.log( validateGeoLocation('12.34, 180.99999999') );
+console.log( validateGeoLocation('91.1 ,-180')) ;
+console.log( validateGeoLocation('12.43,12.12.')) ;
+console.log( validateGeoLocation('0.0,0.0') );
 */
+
