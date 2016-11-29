@@ -2,6 +2,10 @@
 
 module.exports.getKeyFromString = function ( reply )
 {
+  if( reply == null || reply == undefined )
+  {
+		return 'invalid';
+  }
   var json = JSON.parse(reply);
   //console.log( reply + ' ' + json['latitude'] );
   var key=''
@@ -25,7 +29,7 @@ module.exports.getKeyFromString = function ( reply )
   {
   	//key=longitude.concat(latitude);
   }
-  console.log( 'key : ' + key );
+  //console.log( 'key : ' + key );
   return key; 
 }
 

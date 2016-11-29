@@ -26,55 +26,75 @@ app.get('/drivers', function(request, response){
   var upper;
   var data;
   console.log(request.query.latitude + ' : ' + request.query.longitude + ' : ' + request.query.radius + ' : ' + request.query.limit);
-  //var result = url.parse( );
-  //callInfinite( 60000,  fetchLocations );
-  //if( method === 'GET' )
+
   {
 	    console.time("fetch");
 		var out=''
+		var done = false;
 		var limit = request.query.limit;
-		var climit=request.query.limit;
+		if( limit == undefined || limit == null )
+		{
+			limit = 10;
+		}
+		var climit = limit;
 		var radius = request.query.radius;
+		if( radius == undefined || radius == null )
+		{
+			radius = 500;
+		}
+		
 		var qloc = { latitude: request.query.latitude , longitude: request.query.longitude };
 		key = getKeyFromString( JSON.stringify(qloc) );
-		//console.log( key )
+		console.log( 'key : ' + key )
 		var possiblelist=[]
 		read.lrange(key, 0, -1, function(err, replies){
-			
+			if( done ) return;
 			if( replies.length == 0 )
 			{
+				console.log('processed length = 0'); 
 				response.statusCode = 200;
 				response.end('[]');
 				console.timeEnd("fetch");
 				return;
+			}
+			climit = replies.length / 10;
+			if( climit < 10 )
+			{
+				climit = 10;
 			}
 			//console.log( ' total available records : ' + replies.length  );
 			total = replies.length ;
 			//var allkeys=[]
 			var keys=[]
 			replies.forEach(function (item, index){
-					
+				     
+					if( done ) {
+						request=null;
+						replies = []
+						return;
+					}
 					keys.push(item)
-					--total;
-					if( total == 0  || (index % climit) == 0 )
+					if( --total  == 0 )
 					{
 						read.mget(keys, function(err, replies){
+							if( done ) return;
 							var recs = replies.length;
-							console.log( 'recs : ' + recs);
+							//console.log( 'recs : ' + recs);
 							replies.forEach(function(reply, index){
+								if( done ) return;
 								var loc = JSON.parse(reply); 
 								var distance = geo.getDistanceSimple(loc, qloc, loc['accuracy']);
-								//console.log( 'dist : ' + distance);
+								
 				
-								if ( distance < radius )
+								if ( distance <= radius )
 								{
 									delete loc.accuracy;
-									//loc['id'] = index;
 									loc['distance'] = distance;
 									out += JSON.stringify( loc ) + ',\n';
+									
 									if ( --limit == 0 )
 									{
-										//console.log( index );
+										done=true;//replies=[]; keys=[];
 										response.statusCode = 200;
 										response.end('[' + out.substring(0,out.length-2) + ']');
 										console.timeEnd("fetch");
@@ -83,26 +103,24 @@ app.get('/drivers', function(request, response){
 								}
 								if( --recs == 0 )
 								{
+									keys=[];
 									if( total == 0 )
 									{
-										//console.log('limit :  ', limit);
-										console.timeEnd("fetch");
+										done=true;//replies=[]; keys=[];
 										response.statusCode = 200;
 										response.end('[' + out.substring(0,out.length-2) + ']');
+										console.timeEnd("fetch");
 										return;
 									}
-									keys=[]
-							
 								}
 							});
 						});
 					}
-					
+										
 			});
+			//if( done ) return;
 		});
   }
-  
-  
 });
 
 app.listen(8081);

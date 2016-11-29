@@ -1,6 +1,6 @@
 var http = require('http');
 //var json=require('json');
-var math=require('mathjs');
+var express=require('express');
 var redis=require('redis');
 
 var keyloc = require('./keygeoloc')
@@ -16,7 +16,69 @@ read.on('connect', function(){
 });
 ;
 
+var app = express();
+app.put('/drivers/:driverid/locations', function(request, response)
+{
+  var headers = request.headers;
+  var url = request.url;
+  var body = [];
+  //var Body=[];
+  var driverid = request.params.driverid;
+  var lower;
+  var upper;
+  var data;
+  //console.log(request.params.driverid);
+  
+  //var reg = new RegExp('^[0-9]{1,5}$');
+  upper = (Number(driverid) <= Number(50000));
+  lower = (Number(driverid) > "0");
+  if( upper === false || lower === false )
+  {
+	response.statusCode = 404;
+	response.end();	
+	return;
+  }
+  //console.log('valid driverid');
+  request.on('data', function(chunk) {
+		body.push(chunk);
+  }).on('end', function() {
+		body=  Buffer.concat(body).toString() ;
+		data = JSON.parse( body );
+		key=''
+		read.get(Number(driverid), function(err,reply){
+			if( err || reply == null ){ /*console.log('err : ' + err ); console.log( ' set : ' + reply);*/}
+			else
+			{	
+				var json = JSON.parse(reply);
+				//console.log( 'reply : ' + reply );
+				key=getKeyFromString( reply );
+				client.lrem(key, 0,Number(driverid), function(err, reply){
+					//console.log('reply lrem : ' + reply);
+				});
+				
+			}
+		});	
+		data['id'] = Number(driverid);
+		client.set(Number(driverid), JSON.stringify(data) , function(err,reply){
+				//console.log( ' set : ' + reply);
+				if( err ) { console.log('err : ' + err ); }
+				else {
+					key = getKeyFromString( body );
+					client.lpush(key, Number(driverid), function(err,reply){
+					//console.log('reply lpush :' + reply);
+					});
+				}
+		});
+			
+ 
+	});
+ response.statusCode = 200;
+ response.end();
+});
 
+app.listen(8080);
+
+/*
 http.createServer(function(request, response) {
   var headers = request.headers;
   var method = request.method;
@@ -44,6 +106,7 @@ http.createServer(function(request, response) {
 	 {
 		response.statusCode = 404;
 		response.end();	
+		return;
 	 }
 	 else
 	 {
@@ -53,12 +116,7 @@ http.createServer(function(request, response) {
 			body=  Buffer.concat(Body).toString() ;
 			data = JSON.parse( body );
 			
-			/*list=[]
-			for( var key in data )
-			{
-				list.push(data[key])
-				console.log( key + ' : ' + data[key] );
-			}*/
+		
 	 	// async write data redis
 		key=''
 		read.get(Number(driverid), function(err,reply){
@@ -104,3 +162,4 @@ http.createServer(function(request, response) {
  
 	
 }).listen(8080);
+*/
