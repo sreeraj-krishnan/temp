@@ -1,0 +1,23 @@
+{
+  "name": "driver",
+  "version": "1.0.0",
+  "description": " ",
+  "main": "DriverLocation.js",
+  "scripts": {
+    "test": "./node_modules/.bin/jasmine --verbose --color spec/driver_spec.js spec/driver_add.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "repository": {},
+  "dependencies": {
+    "express": "^4.14.0",
+    "geolib": "^2.0.22",
+    "jasmine": "^2.5.2",
+    "request": "^2.79.0"
+  },
+  "devDependencies": {
+    "jasmine": "^2.5.2",
+    "jasmine-spec-reporter": "^2.7.0"
+  }
+}

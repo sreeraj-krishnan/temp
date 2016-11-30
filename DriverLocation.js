@@ -35,8 +35,7 @@ app.put('/drivers/:driverid/locations', function(request, response)
   
   upper = (Number(driverid) <= Number(50000));
   lower = (Number(driverid) > "0");
-  console.log( 'upper : ' + upper );
-  console.log( 'lower : ' + lower);
+ 
   if( upper === false || lower === false )
   {
 	response.statusCode = 404;
@@ -228,4 +227,4 @@ app.get('/drivers', function(request, response){
   }
 });
 
-app.listen(8083);
+app.listen(8080);
