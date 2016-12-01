@@ -14,10 +14,8 @@ def main(a,b):
         longitude += 0.01;
         accuracy = i % 100 + 1
         data = str(' { "latitude": ') + str(latitude) + str(' , "longitude" : ') + str(longitude) + str(' , "accuracy" : ' +  str(float(accuracy)/100) +str(' }'))
-        os.system(str('curl -X PUT -H "Content-Type: application/json"  http://localhost:8080/drivers/')+str(i) +str('/locations --data ') +str("'")+ data + str("' &"));
-        if i % 100 == 0:
-            time.sleep(2)
-
+        os.system(str('curl -X PUT -H "Content-Type: application/json"  http://localhost:8080/drivers/')+str(i) +str('/locations --data ') +str("'")+ data + str("'"));
+        
 
 
 if __name__ == '__main__':

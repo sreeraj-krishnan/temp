@@ -1,28 +1,29 @@
-var http = require('http');
-//var json=require('json');
+
 var express=require('express');
 var redis=require('redis');
-var async=require('async');
 var geo = require('geolib')
 var keyloc = require('./keygeoloc')
 var Promise = require('promise');
 
 getKeyFromString = keyloc.getKeyFromString
 validateGeoLocation = keyloc.validateGeoLocation
+var config = require('./config/config');
 
-var exports = module.exports = {};
+//var exports = module.exports = {};
 
 var client = redis.createClient(); //11111,'127.0.0.1'
 client.on('connect', function(){
 	//console.log('connected');
 });
-var read = redis.createClient(6399,'127.0.0.1'); //11111,'127.0.0.1'
+var read = redis.createClient(config.redis.readport,config.redis.host); //11111,'127.0.0.1'
 read.on('connect', function(){
 	//console.log('connected');
 });
 
 
 var app = express();
+
+
 app.put('/drivers/:driverid/locations', function(request, response)
 {
   //console.time('processed');
@@ -34,7 +35,7 @@ app.put('/drivers/:driverid/locations', function(request, response)
   var upper;
   var data;
   
-  upper = (Number(driverid) <= Number(50000));
+  upper = (Number(driverid) <= Number(config.app.driverMaxid));
   lower = (Number(driverid) > "0");
  
   if( upper === false || lower === false )
@@ -94,8 +95,6 @@ app.put('/drivers/:driverid/locations', function(request, response)
 
 app.get('/drivers', function(request, response){
   //console.time("fetch");
-  var headers = request.headers;
-  var method = request.method;
   var url = request.url;
   var body = [];
   var driverid;
@@ -117,12 +116,12 @@ app.get('/drivers', function(request, response){
 	    var limit = request.query.limit;
 		if( limit == undefined || limit == null )
 		{
-			limit = 10;
+			limit = config.app.defaultLimit;
 		}
 		var radius = request.query.radius;
 		if( radius == undefined || radius == null )
 		{
-			radius = 500;
+			radius = config.app.defaultRadius;
 		}
 		var qloc = { latitude: request.query.latitude , longitude: request.query.longitude };
 		var nearbylocations = [ 
@@ -160,7 +159,6 @@ function doasync( allkeys , qloc, limits, radius )
 		
 		for( i=0; i < allkeys.length ; i++ )
 		{
-			//console.log('promise begin 2 : ' + allkeys[i])
 			var locations = getAllLocationsWithKey( allkeys[i],qloc, limits,radius);
 			promises.push( locations );
 		}
@@ -168,9 +166,8 @@ function doasync( allkeys , qloc, limits, radius )
 		Promise.all(promises).then( function(values){
 			for( j=0; j < values.length; j++ )
 			{
-				len--;
+				//len--;
 				locations = values[j];
-				//console.log( ' items : ' + locations[0] )
 				if( locations[0] >= limits )
 				{
 					for(i=0; i < limits ; i++ )
@@ -204,7 +201,7 @@ function getAllLocationsWithKey( key,qloc,limits,radius )
 			outs=[]
 			if( total === 0 )
 			{
-				resolve( [outs.length, outs]  );
+				resolve( [outs.length, outs]  ); // callback
 			}
 			//console.log('total : ' + total)
 			
@@ -245,8 +242,4 @@ function getAllLocationsWithKey( key,qloc,limits,radius )
 	
 }
 
-function callback(request, response )
-{
-	return;
-}
-app.listen(8080);
+app.listen(config.web.port); // defaulted to 8080

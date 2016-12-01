@@ -2,7 +2,7 @@
   "name": "driver",
   "version": "1.0.0",
   "description": " ",
-  "main": "DriverLocation.js",
+  "main": "driver.js",
   "scripts": {
     "test": "./node_modules/.bin/jasmine --verbose --color spec/driver_spec.js spec/driver_add.js"
   },
@@ -14,6 +14,8 @@
     "express": "^4.14.0",
     "geolib": "^2.0.22",
     "jasmine": "^2.5.2",
+    "promise": "^7.1.1",
+    "redis": "^2.6.3",
     "request": "^2.79.0"
   },
   "devDependencies": {
