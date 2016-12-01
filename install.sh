@@ -8,5 +8,5 @@ redis-server.exe ./redis-slave.conf
 
 npm test
 node driver.js &
-echo "started server successfully @ http://localhost:8080"
+echo "started server successfully @ http://localhost:8080, settings can be changed inside config/config.js"
 
