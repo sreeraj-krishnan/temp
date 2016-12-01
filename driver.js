@@ -139,7 +139,6 @@ app.get('/drivers', function(request, response){
 		for ( loc in nearbylocations )
 		{
 			Keys.push( getKeyFromString( nearbylocations[loc], true ) );
-			
 		}
 		doasync( Keys, qloc, limit, radius ).then( function(values){
 			
@@ -177,7 +176,7 @@ function doasync( allkeys , qloc, limits, radius )
 					resolve( json );
 					allkeys=[]; 
 				}
-				else if( locations[0] > limits )
+				else if( locations[0] > 0 )
 				{
 					limits -= locations[0]
 					for(i=0; i < locations[0] ; i++ )
@@ -187,7 +186,8 @@ function doasync( allkeys , qloc, limits, radius )
 				}
 					
 			}
-			resolve(json);
+			//if( len == 0 )
+				resolve(json);
 		});
 	});
 }
