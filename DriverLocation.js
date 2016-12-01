@@ -5,6 +5,7 @@ var redis=require('redis');
 var async=require('async');
 var geo = require('geolib')
 var keyloc = require('./keygeoloc')
+var Promise = require('promise');
 
 getKeyFromString = keyloc.getKeyFromString
 validateGeoLocation = keyloc.validateGeoLocation
@@ -113,10 +114,7 @@ app.get('/drivers', function(request, response){
 		return;
   }	
   {
-	    
-		var out=''
-		var done = false;
-		var limit = request.query.limit;
+	    var limit = request.query.limit;
 		if( limit == undefined || limit == null )
 		{
 			limit = 10;
@@ -126,105 +124,129 @@ app.get('/drivers', function(request, response){
 		{
 			radius = 500;
 		}
-		
 		var qloc = { latitude: request.query.latitude , longitude: request.query.longitude };
 		var nearbylocations = [ 
 						{ latitude : qloc.latitude , longitude: qloc.longitude 		 },
 						{ latitude : qloc['latitude'], longitude: qloc['longitude']  + 0.1 },
 						{ latitude : qloc['latitude'] , longitude: qloc['longitude']  - 0.1 },
 						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']   },
-						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']   },
-						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']-0.1},
+						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']   }/*,
 						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']+0.1},
+						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']-0.1},
 						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']+0.1},
-						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']-0.1}
+						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']-0.1}*/
 					];
-		var Keys=[]
+		var Keys=[];
 		for ( loc in nearbylocations )
 		{
 			Keys.push( getKeyFromString( nearbylocations[loc], true ) );
-		}
-		keylength = Keys.length;
-		Keys.forEach(function(key, ind ) {
-			if( done ) {
-				request=null;Keys=[];
-				replies = [];
-				return;
-			}
-			//console.log('key len : ' + keylength);
-			keylength--;
-			read.lrange(key, 0, -1, function(err, replies){
-				if( done ) {
-					request=null;Keys=[];
-					replies = []
-					return;
-				}
 			
-				total = replies.length ;
-				if( total == 0 && keylength == 0 )
-				{
-					done=true;
-					response.statusCode = 200;
-					response.end('[' + out.substring(0,out.length-2) + ']');
-					//console.timeEnd("fetch");
-					return;
-				}
-				//console.log( ' total per key : ' + total)
-				var keys=[]
-				replies.forEach(function (item, index){
-					if( done ) {
-						request=null;
-						replies = [];
-						return;
-					}
-					keys.push(item);
-					total--;
-					if( total == 0 )
-					{
-						read.mget(keys, function(err, replies){
-							if( done ) return;
-							var recs = replies.length;
-							//console.log('recs per total  : ' + recs)
-							replies.forEach(function(reply, index){
-								if( done ) return;
-								var loc = JSON.parse(reply); 
-								var distance = geo.getDistanceSimple(loc, qloc, loc['accuracy']);
-								//console.log( 'distance : ' + distance);
-								if ( distance <= radius )
-								{
-									delete loc.accuracy;
-									loc['distance'] = distance;
-									out += JSON.stringify( loc ) + ',\n';
-									//console.log( 'limit : ' + limit);
-									if ( --limit == 0 )
-									{
-										done=true;
-										response.statusCode = 200;
-										response.end('[' + out.substring(0,out.length-2) + ']');
-										//console.timeEnd("fetch");
-										return;
-									}
-								}
-								if( --recs == 0 )
-								{
-									keys=[];
-									if( total == 0 && keylength == 0 )
-									{
-										done=true;
-										//console.log('in  total == 0 && keylength == 0')
-										response.statusCode = 200;
-										response.end('[' + out.substring(0,out.length-2) + ']');
-										//console.timeEnd("fetch");
-										return;
-									}
-								}
-							});
-						});
-					}
-				});
-			});
+		}
+		doasync( Keys, qloc, limit, radius ).then( function(values){
+			
+			response.statusCode = 200;
+			response.end('[' + values.substring(0, values.length - 2) + ']');
 		});
+		
   }
 });
 
+function doasync( allkeys , qloc, limits, radius )
+{
+	return new Promise( function (resolve,reject) {
+		var promises = [];
+		json=''
+		len = allkeys.length;
+		
+		for( i=0; i < allkeys.length ; i++ )
+		{
+			//console.log('promise begin 2 : ' + allkeys[i])
+			var locations = getAllLocationsWithKey( allkeys[i],qloc, limits,radius);
+			promises.push( locations );
+		}
+	
+		Promise.all(promises).then( function(values){
+			for( j=0; j < values.length; j++ )
+			{
+				len--;
+				locations = values[j];
+				//console.log( ' items : ' + locations[0] )
+				if( locations[0] >= limits )
+				{
+					for(i=0; i < limits ; i++ )
+					{
+						json += JSON.stringify(locations[1][i]) + ',\n'
+					}
+					resolve( json );
+					allkeys=[]; 
+				}
+				else if( locations[0] > limits )
+				{
+					limits -= locations[0]
+					for(i=0; i < locations[0] ; i++ )
+					{
+						json += JSON.stringify(locations[1][i]) + ',\n'
+					}
+				}
+					
+			}
+			resolve(json);
+		});
+	});
+}
+
+function getAllLocationsWithKey( key,qloc,limits,radius )
+{
+	return new Promise(function (resolve,reject ) {
+		read.lrange(key, 0, -1, function(err, replies){
+			total  = replies.length ;
+			var keys=[]
+			outs=[]
+			if( total === 0 )
+			{
+				resolve( [outs.length, outs]  );
+			}
+			//console.log('total : ' + total)
+			
+			replies.forEach(function (item, index){
+				keys.push(item);
+				if( --total === 0 )
+				{
+					read.mget(keys, function(err, replieskeys){
+				
+						var recs = replieskeys.length;
+						replieskeys.forEach(function(reply, index){
+								
+							var loc = JSON.parse(reply); 
+							var distance = geo.getDistanceSimple(loc, qloc, loc['accuracy']);
+							if ( distance <= radius )
+							{
+								delete loc.accuracy;
+								loc['distance'] = distance;
+								outs.push( loc );
+								if( --limits == 0 )
+								{
+									//console.log('all search done')
+									resolve([outs.length ,outs] );
+								}
+							
+							}	
+							if( --recs == 0 )
+							{
+								keys=[];
+								resolve( [outs.length , outs] );
+							}
+						});
+					});
+				}
+			});
+		});
+	});
+	
+}
+
+function callback(request, response )
+{
+	return;
+}
 app.listen(8080);
