@@ -10,8 +10,20 @@ validateGeoLocation = keyloc.validateGeoLocation
 var config = require('./config/config');
 
 //var exports = module.exports = {};
+var cluster = require('cluster');
 
-var client = redis.createClient(); //11111,'127.0.0.1'
+
+
+
+if (cluster.isMaster) {
+	var cpuCount = require('os').cpus().length;
+	for (var i = 0; i < cpuCount; i += 1) 
+	{
+        cluster.fork();
+    }
+}
+else {
+	var client = redis.createClient(); //11111,'127.0.0.1'
 client.on('connect', function(){
 	//console.log('connected');
 });
@@ -22,7 +34,7 @@ read.on('connect', function(){
 
 
 var app = express();
-
+	
 
 app.put('/drivers/:driverid/locations', function(request, response)
 {
@@ -94,7 +106,7 @@ app.put('/drivers/:driverid/locations', function(request, response)
 });
 
 app.get('/drivers', function(request, response){
-  //console.time("fetch");
+  console.time("fetch");
   var url = request.url;
   var body = [];
   var driverid;
@@ -129,11 +141,11 @@ app.get('/drivers', function(request, response){
 						{ latitude : qloc['latitude'], longitude: qloc['longitude']  + 0.1 },
 						{ latitude : qloc['latitude'] , longitude: qloc['longitude']  - 0.1 },
 						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']   },
-						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']   }/*,
+						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']   },
 						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']+0.1},
 						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']-0.1},
 						{ latitude : qloc['latitude'] -0.1 , longitude: qloc['longitude']+0.1},
-						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']-0.1}*/
+						{ latitude : qloc['latitude'] +0.1 , longitude: qloc['longitude']-0.1}
 					];
 		var Keys=[];
 		for ( loc in nearbylocations )
@@ -144,11 +156,15 @@ app.get('/drivers', function(request, response){
 			
 			response.statusCode = 200;
 			response.end('[' + values.substring(0, values.length - 2) + ']');
-			//console.timeEnd('fetch');
+			console.timeEnd('fetch');
 		});
 		
   }
 });
+app.listen(config.web.port); // defaulted to 8080
+}
+
+
 
 function doasync( allkeys , qloc, limits, radius )
 {
@@ -243,4 +259,4 @@ function getAllLocationsWithKey( key,qloc,limits,radius )
 	
 }
 
-app.listen(config.web.port); // defaulted to 8080
+
