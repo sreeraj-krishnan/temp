@@ -144,6 +144,7 @@ app.get('/drivers', function(request, response){
 			
 			response.statusCode = 200;
 			response.end('[' + values.substring(0, values.length - 2) + ']');
+			//console.timeEnd('fetch');
 		});
 		
   }
@@ -155,40 +156,39 @@ function doasync( allkeys , qloc, limits, radius )
 		var promises = [];
 		json=''
 		len = allkeys.length;
-		
+		//console.log('len : ' + len)
 		for( i=0; i < allkeys.length ; i++ )
 		{
 			var locations = getAllLocationsWithKey( allkeys[i],qloc, limits,radius);
-			promises.push( locations );
-		}
 	
-		Promise.all(promises).then( function(values){
-			for( j=0; j < values.length; j++ )
-			{
-				//len--;
-				locations = values[j];
-				if( locations[0] >= limits )
+			locations.then( function(values){
 				{
-					for(i=0; i < limits ; i++ )
+					locs = values;
+					//console.log('locations : ' + locs[0])
+					if( locs[0] >= limits )
 					{
-						json += JSON.stringify(locations[1][i]) + ',\n'
+						for(i=0; i < limits ; i++ )
+						{
+							json += JSON.stringify(locs[1][i]) + ',\n'
+						}
+						resolve( json );
+						allkeys=[]; 
 					}
-					resolve( json );
-					allkeys=[]; 
-				}
-				else if( locations[0] > 0 )
-				{
-					limits -= locations[0]
-					for(i=0; i < locations[0] ; i++ )
+					else if( locs[0] > 0 )
 					{
-						json += JSON.stringify(locations[1][i]) + ',\n'
+						limits -= locs[0]
+						for(i=0; i < locs[0] ; i++ )
+						{
+							json += JSON.stringify(locs[1][i]) + ',\n'
+						}
 					}
-				}
 					
-			}
-			//if( len == 0 )
-				resolve(json);
-		});
+				}
+				//console.log('len : ' + len)
+				if( --len == 0 )
+					resolve(json);
+			});
+		}
 	});
 }
 
@@ -231,6 +231,7 @@ function getAllLocationsWithKey( key,qloc,limits,radius )
 							if( --recs == 0 )
 							{
 								keys=[];
+								//console.log('done')
 								resolve( [outs.length , outs] );
 							}
 						});
